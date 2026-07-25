@@ -1,0 +1,25 @@
+# 编译产物
+build/
+devel/
+logs/
+install/
+.catkin_tools/
+catkin_ws/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+*.bag
+
+# 本地配置
+*~

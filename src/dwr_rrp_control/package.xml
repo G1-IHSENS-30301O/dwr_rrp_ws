@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>dwr_rrp_control</name>
+  <version>0.0.0</version>
+  <description>The dwr_rrp_control package</description>
+
+  <maintainer email="yatsing@todo.todo">yatsing</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!-- 全部依赖统一用 depend，同时满足编译+导出+运行依赖 -->
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf</depend>
+  <depend>gazebo_ros</depend>
+  <depend>gazebo_ros_control</depend>
+  <depend>controller_manager</depend>
+  <depend>joint_state_controller</depend>
+  <depend>effort_controllers</depend>
+  <depend>position_controllers</depend>
+
+  <export>
+  </export>
+</package>

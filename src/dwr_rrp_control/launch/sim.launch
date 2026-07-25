@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find dwr_rrp_control)/worlds/house.world"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="gui" value="true"/>
+    <arg name="headless" value="false"/>
+    <arg name="debug" value="false"/>
+  </include>
+
+  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model"
+        args="-sdf -model dwr_rrp_robot -file $(find dwr_rrp_control)/models/dwr_rrp_robot.sdf
+              -x 2.0 -y 2.0 -z 0.2 -Y 0.0" />
+</launch>
