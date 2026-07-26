@@ -27,18 +27,21 @@ walls = [
 for w in walls:
     set_block(*w)
 
-# 膨胀一格
-CELLS = 1
-new_grid = [row[:] for row in grid]
-for j in range(MAP_SIZE_Y):
-    for i in range(MAP_SIZE_X):
-        if grid[j][i] == 1:
-            for dx in range(-CELLS, CELLS+1):
-                for dy in range(-CELLS, CELLS+1):
-                    ni, nj = i+dx, j+dy
-                    if 0 <= ni < MAP_SIZE_X and 0 <= nj < MAP_SIZE_Y:
-                        new_grid[nj][ni] = 1
-grid = new_grid
+# 全局静态膨胀已移除。
+# 车体安全半径 0.55m 保护移至 trajectory_planner.py 的 _world_pt_collide，
+# A* 遍历节点时实时判断碰撞，避免狭窄通道被一次性堵死。
+
+# 调试工具，运行一次查看各目标点可行停靠位置
+from dwr_rrp_control_lib.trajectory_planner import TrajectoryPlanner
+tp = TrajectoryPlanner(grid, MAP_RES)
+test_points = [
+    (19.5, 7.3),   # 放置原始目标
+    (0.5, 4.0),
+    (19.5, 11.0)
+]
+for x, y in test_points:
+    free = tp.find_nearest_free_point(x, y)
+    print(f"目标({x},{y}) → 可行停靠点 {free}")
 
 if __name__ == '__main__':
     try:

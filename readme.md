@@ -76,7 +76,8 @@ cd ~
 mkdir -p dwr_rrp_ws/src
 cd dwr_rrp_ws/src
 # 将本项目代码放入 src/dwr_rrp_control 中
-
+```
+```bash
 cd ~/dwr_rrp_ws
 catkin_make
 source devel/setup.bash

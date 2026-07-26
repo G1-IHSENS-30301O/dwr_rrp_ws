@@ -1,62 +1,121 @@
 #!/usr/bin/env python3
 # rrp_kinematics.py
-import rospy
 import math
-from .params import RobotParams
+import numpy as np
+
+def wrap_rad(angle):
+    two_pi = 2 * math.pi
+    rem = angle % two_pi
+    if rem > math.pi:
+        rem -= two_pi
+    return rem
 
 class RRPKinematicsDynamics:
-    def __init__(self, params=None):
-        if params is None:
-            self.params = RobotParams()
-        else:
-            self.params = params
-        self.DEBUG = True  # 可改为全局配置
-
+    def __init__(self, params):
+        self.params = params
+        # 迭代参数
+        self.max_iter = 20
+        self.eps = 1e-4
+        self.step = 0.5
+    
+    # Forward Kinematics Analysis
     def forward_kinematics(self, th1, th2, d3):
-        """
-        正运动学：给定关节角 (th1, th2, d3_actual)，返回末端位置 (x, y, z)
-        其中 d3 为实际臂长（含 OFFSET_EE）
-        """
-        R = self.params.a2 + d3 * math.sin(th2)
-        x = R * math.cos(th1)
-        y = R * math.sin(th1)
-        z = self.params.base_z + self.params.d1 + d3 * math.cos(th2)
-        return x, y, z
+        """新版DH FK(固定)"""
+        s1 = math.sin(th1)
+        c1 = math.cos(th1)
+        s2 = math.sin(th2)
+        c2 = math.cos(th2)
+        a2 = self.params.a2
+        zb = self.params.base_z
+        d1 = self.params.d1
+        x = -a2 * s1 + d3 * c1 * s2
+        y =  a2 * c1 + d3 * s1 * s2
+        z = zb + d1 + d3 * c2
+        return x,y,z
 
-    def inverse_kinematics(self, x_e, y_e, z_e):
+    # Inverse Kinematics Analysis
+    def inverse_kinematics(self, x_t, y_t, z_t, q0=None):
         """
-        逆运动学：给定目标点，返回 (th1, th2, d3_actual) 或 None
+        q0:初始猜测 [th1,th2,d3]
+        返回 (th1,th2,d3) or None
         """
-        dz = z_e - self.params.base_z - self.params.d1
-        R = math.sqrt(x_e**2 + y_e**2)
-        if R < self.params.a2:
-            rospy.logwarn("[IK] 水平距离 R=%.3f < a2=%.2f", R, self.params.a2)
-            return None
-        d3 = math.sqrt((R - self.params.a2)**2 + dz**2)
-        if d3 < self.params.D3_MIN or d3 > self.params.D3_MAX:
-            rospy.logwarn("[IK] d3=%.3f 超出实际臂长范围 [%.3f, %.3f]",
-                          d3, self.params.D3_MIN, self.params.D3_MAX)
-            return None
-        theta1 = math.atan2(y_e, x_e)
-        theta2 = math.atan2(R - self.params.a2, dz)
-        if theta2 > 1.50:
-            theta2 = 1.50
-            rospy.logwarn("[IK] theta2 限幅至 1.50")
-        if self.DEBUG:
-            rospy.loginfo("[IK] 结果: th1=%.3f, th2=%.3f, d3=%.3f", theta1, theta2, d3)
-        return theta1, theta2, d3
+        import numpy as np
+        # 初始猜测
+        if q0 is None:
+            th1, th2, d3 = 0.0, 0.8, 0.3
+        else:
+            th1, th2, d3 = q0
 
-    def gravity_compensation(self, th1, th2, d3, mass, joint1_ctrl, joint2_ctrl, joint3_ctrl):
+        for _ in range(self.max_iter):
+            x,y,z = self.forward_kinematics(th1,th2,d3)
+            ex = x - x_t
+            ey = y - y_t
+            ez = z - z_t
+            err = np.array([ex,ey,ez])
+            if np.linalg.norm(err) < self.eps:
+                break
+            J = np.array(self.jacobian(th1,th2,d3))
+            dq = -self.step * self.mat_pinv(J) @ err
+            th1 += dq[0]
+            th2 += dq[1]
+            d3 += dq[2]
+
+            # 关节限位
+            d3 = max(self.params.D3_MIN, min(d3, self.params.D3_MAX))
+        xf,yf,zf = self.forward_kinematics(th1,th2,d3)
+        if math.hypot(xf-x_t,yf-y_t,zf-z_t) > 5e-3:
+            return None
+        # 归一化角度
+        th1 = wrap_rad(th1)
+        # 俯仰硬件限位 ±90°
+        th2 = max(min(wrap_rad(th2), math.pi / 2), -math.pi / 2)
+        return th1, th2, d3
+
+    # Differential Kinematics
+    def jacobian(self, th1, th2, d3):
         """
-        施加重力补偿力矩/力
+        J = [[dx/dth1, dx/dth2, dx/dd3],
+             [dy/dth1, dy/dth2, dy/dd3],
+             [dz/dth1, dz/dth2, dz/dd3]]
         """
-        tau1 = mass * self.params.G * math.cos(th1) * math.sin(th2)
-        tau2 = mass * self.params.G * math.cos(th2)
-        f3 = mass * self.params.G * math.cos(th2)
-        joint1_ctrl.apply_effort(tau1, 0.5)
-        joint2_ctrl.apply_effort(tau2, 0.5)
-        joint3_ctrl.apply_effort(f3, 0.5)
-        rospy.sleep(0.6)
-        joint1_ctrl.apply_effort(0.0, 0.0)
-        joint2_ctrl.apply_effort(0.0, 0.0)
-        joint3_ctrl.apply_effort(0.0, 0.0)
+        s1 = math.sin(th1)
+        c1 = math.cos(th1)
+        s2 = math.sin(th2)
+        c2 = math.cos(th2)
+        a2 = self.params.a2
+
+        dxdt1 = -a2*c1 - d3*s1*s2
+        dxdt2 = d3*c1*c2
+        dxdd3 = c1*s2
+
+        dydt1 = -a2*s1 + d3*c1*s2
+        dydt2 = d3*s1*c2
+        dydd3 = s1*s2
+
+        dzdt1 = 0.0
+        dzdt2 = -d3*s2
+        dzdd3 = c2
+        return [
+            [dxdt1, dxdt2, dxdd3],
+            [dydt1, dydt2, dydd3],
+            [dzdt1, dzdt2, dzdd3]
+        ]
+
+    def mat_pinv(self, J):
+        Jnp = np.array(J)
+        return np.linalg.pinv(Jnp)
+
+    # Gravity Compensation
+    def gravity_compensation(self, th1, th2, d3, mass):
+        g = self.params.G
+        # 严格遵循PPT τ=J^T F 推导结果
+        tau1 = 0.0
+        tau2 = -mass * g * d3 * math.sin(th2)
+        f3 = mass * g * math.cos(th2)
+        
+        # 力矩限幅保护驱动器（PPT工程实现要点）
+        MAX_TORQUE = 15.0
+        MAX_FORCE = 90.0
+        tau2 = max(min(tau2, MAX_TORQUE), -MAX_TORQUE)
+        f3 = max(min(f3, MAX_FORCE), -MAX_FORCE)
+        return tau1, tau2, f3

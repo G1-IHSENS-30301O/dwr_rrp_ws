@@ -8,6 +8,7 @@ class RobotParams:
     D3_MIN = 0.11              # 实际臂长下限 (m)
     D3_MAX = 0.61              # 实际臂长上限 (m)
     base_z = 0.25              # 底盘高度 (m)
+    GRAB_Z = 1.60              # 统一抓取放置Z高度
 
     # 负载质量 (kg)
     MASS_MEDICINE = 0.2
@@ -21,14 +22,14 @@ class RobotParams:
     MAX_W = 1.5                # 最大角速度 (rad/s)
     LOOKAHEAD = 1.0            # 前瞻距离 (m)
 
-    # 任务定义（可选，也可放在主程序）
+    # 任务定义（修复关键字冲突+统一高度）
     TASKS = [
-        {'object': 'medicine', 'priority': 'high',
-         'from': (0.5, 4.0, 1.60), 'to': (19.5, 7.3, 1.60)},
+         {'object': 'medicine', 'priority': 'high',
+          'pick_pos': (0.5, 4.0, GRAB_Z), 'place_pos': (19.5, 7.25, GRAB_Z)},
         {'object': 'water',    'priority': 'medium',
-         'from': (19.5, 11.0, 1.60), 'to': (19.5, 7.3, 1.60)},
+          'pick_pos': (19.5, 11.0, GRAB_Z), 'place_pos': (19.5, 7.25, GRAB_Z)},
         {'object': 'phone',    'priority': 'low',
-         'from': (0.5, 11.0, 1.60), 'to': (19.5, 7.3, 1.60)},
+          'pick_pos': (0.5, 11.0, GRAB_Z), 'place_pos': (19.5, 7.25, GRAB_Z)},
         {'object': 'walker',   'priority': 'low',
-         'from': (3.0, 2.0, 1.60), 'to': (19.5, 7.3, 1.60)},
+          'pick_pos': (3.0, 2.0, GRAB_Z), 'place_pos': (19.5, 7.25, GRAB_Z)},
     ]
